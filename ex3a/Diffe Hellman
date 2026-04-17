@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Diffie-Hellman Exchange</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --secondary: #10b981;
+            --bg: #f1f5f9;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            padding: 2rem;
+            margin: 0;
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h2 { text-align: center; color: var(--primary); margin-top: 0; }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+
+        .input-group { display: flex; flex-direction: column; }
+        label { font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 5px; }
+        input {
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover { background: #4338ca; }
+
+        .output-section { margin-top: 25px; }
+
+        .step {
+            border-left: 3px solid #e2e8f0;
+            padding-left: 15px;
+            margin-bottom: 20px;
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        .step-title { font-weight: bold; color: var(--primary); font-size: 0.9rem; }
+        .step-details { font-family: monospace; background: #f8fafc; padding: 8px; border-radius: 4px; margin-top: 5px; }
+
+        .final-key {
+            background: #ecfdf5;
+            border: 2px dashed var(--secondary);
+            padding: 15px;
+            text-align: center;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Diffie-Hellman Step-by-Step</h2>
+
+    <!-- User Input Section -->
+    <div class="input-grid">
+        <div class="input-group">
+            <label>Public Prime (P)</label>
+            <input type="number" id="P" value="23">
+        </div>
+        <div class="input-group">
+            <label>Primitive Root (G)</label>
+            <input type="number" id="G" value="5">
+        </div>
+        <div class="input-group">
+            <label>Alice Private Key (a)</label>
+            <input type="number" id="privA" value="4">
+        </div>
+        <div class="input-group">
+            <label>Bob Private Key (b)</label>
+            <input type="number" id="privB" value="3">
+        </div>
+    </div>
+
+    <button onclick="runExchange()">Generate Exchange</button>
+
+    <!-- Step-by-Step Output Section -->
+    <div id="output" class="output-section"></div>
+</div>
+
+<script>
+    // Modular Exponentiation using BigInt for precision
+    function power(base, exp, mod) {
+        let res = BigInt(1);
+        base = BigInt(base) % BigInt(mod);
+        exp = BigInt(exp);
+        let m = BigInt(mod);
+
+        while (exp > 0n) {
+            if (exp % 2n === 1n) res = (res * base) % m;
+            base = (base * base) % m;
+            exp = exp / 2n;
+        }
+        return res;
+    }
+
+    function runExchange() {
+        const p = parseInt(document.getElementById('P').value);
+        const g = parseInt(document.getElementById('G').value);
+        const a = parseInt(document.getElementById('privA').value);
+        const b = parseInt(document.getElementById('privB').value);
+        const output = document.getElementById('output');
+
+        // Reset Output
+        output.innerHTML = "";
+
+        // 1. Calculate Public Keys
+        const x = power(g, a, p); // Alice's Generated Key
+        const y = power(g, b, p); // Bob's Generated Key
+
+        // 2. Calculate Shared Secrets
+        const ka = power(y, a, p); // Alice computes key
+        const kb = power(x, b, p); // Bob computes key
+
+        const steps = [
+            {
+                title: "Step 1: Alice Generates Public Key (x)",
+                details: `G^a mod P → ${g}^${a} mod ${p} = <strong>${x}</strong>`
+            },
+            {
+                title: "Step 2: Bob Generates Public Key (y)",
+                details: `G^b mod P → ${g}^${b} mod ${p} = <strong>${y}</strong>`
+            },
+            {
+                title: "Step 3: Exchange Values",
+                details: `Alice sends ${x} to Bob. Bob sends ${y} to Alice.`
+            },
+            {
+                title: "Step 4: Alice Computes Shared Secret",
+                details: `y^a mod P → ${y}^${a} mod ${p} = <strong>${ka}</strong>`
+            },
+            {
+                title: "Step 5: Bob Computes Shared Secret",
+                details: `x^b mod P → ${x}^${b} mod ${p} = <strong>${kb}</strong>`
+            }
+        ];
+
+        steps.forEach((step, index) => {
+            setTimeout(() => {
+                const div = document.createElement('div');
+                div.className = "step";
+                div.innerHTML = `
+                    <div class="step-title">${step.title}</div>
+                    <div class="step-details">${step.details}</div>
+                `;
+                output.appendChild(div);
+
+                // Show final result box after the last step
+                if(index === steps.length - 1) {
+                    const final = document.createElement('div');
+                    final.className = "final-key";
+                    final.innerHTML = `
+                        <strong style="color:var(--secondary)">SUCCESS!</strong><br>
+                        Shared Secret Established: <strong>${ka}</strong>
+                    `;
+                    output.appendChild(final);
+                }
+            }, index * 600); // 600ms delay for step-by-step effect
+        });
+    }
+</script>
+
+</body>
+</html>
